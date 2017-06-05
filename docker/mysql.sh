@@ -91,7 +91,7 @@ function createMysql() {
 		exit 1
 	else
 		echo "Creating the new MYSQL docker container."
-		docker run --name "${2}" -e MYSQL_ROOT_PASSWORD="${3}" -d mysql:latest
+		docker run --name "${2}" -e MYSQL_ROOT_PASSWORD="${3}" -p 3306:3306 -d mysql:latest
 	fi
 }
 
@@ -209,14 +209,18 @@ function mysqlScript() {
 		echo "${loc_usage}"
 		exit 1
 	elif [[ ! -z "$4" ]]; then
+		local DIR=$(dirname "${3}")
+		local FILE=$(basename "${3}")
 		echo "Running script ${3} on database ${4} in container ${2}."
-		docker run -it --link "${2}" -v $PWD:/var/script -e SQL_SCRIPT="${3}" -e DB_NAME="${4}" --rm mysql sh -c 'exec mysql -h"$MYSQL_PORT_3306_TCP_ADDR" -P"$MYSQL_PORT_3306_TCP_PORT" -uroot -p --default-character-set=utf8 "$DB_NAME" < "/var/script/$SQL_SCRIPT"'
+		docker run -it --link "${2}" -v $DIR:/var/script -e SQL_SCRIPT="${FILE}" -e DB_NAME="${4}" --rm mysql sh -c 'exec mysql -h"$MYSQL_PORT_3306_TCP_ADDR" -P"$MYSQL_PORT_3306_TCP_PORT" -uroot -p --default-character-set=utf8 "$DB_NAME" < "/var/script/$SQL_SCRIPT"'
 	else
+		local DIR=$(dirname "${3}")
+		local FILE=$(basename "${3}")
 		echo "You did not provide a database name."
 		echo "Please make sure you have a USE DB_NAME statement at the beginning of your script."
 		if confirm "Proceed? [y/N]"; then
 			echo "Running script ${3} in container ${2}."
-			docker run -it --link "${2}":mysql -v $PWD:/var/script -e FILENAME="${3}" --rm mysql sh -c 'exec mysql -h"$MYSQL_PORT_3306_TCP_ADDR" -P"$MYSQL_PORT_3306_TCP_PORT" -uroot -p --default-character-set=utf8 < "/var/script/$FILENAME"'
+			docker run -it --link "${2}":mysql -v $DIR:/var/script -e FILENAME="${FILE}" --rm mysql sh -c 'exec mysql -h"$MYSQL_PORT_3306_TCP_ADDR" -P"$MYSQL_PORT_3306_TCP_PORT" -uroot -p --default-character-set=utf8 < "/var/script/$FILENAME"'
 		else
 			echo "Aborting."
 			exit 0
