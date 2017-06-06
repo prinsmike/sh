@@ -75,9 +75,20 @@ printUsage() {
 
 createPG() {
 	local loc_command=create
-	local loc_usage="usage: $PROGRAM ${loc_command} CONTAINER_NAME PG_PASS"
+	local loc_usage="usage: $PROGRAM ${loc_command} CONTAINER_NAME PG_PASS [RELEASE_TAG] [HOST_PORT]"
 
-	if [[ -z "$2"  ]]; then
+	TAG=$4
+	if [[ -z "$4" ]]; then
+		TAG=latest
+	fi
+
+	HOST_PORT=$5
+	if [[ -z "$5" ]]; then
+		HOST_PORT=5432
+	fi
+
+
+	if [[ -z "$2" ]]; then
 		echo "You must provide a container name."
 		echo "${loc_usage}"
 		echo "Provided: $ARGS"
@@ -91,7 +102,7 @@ createPG() {
 		exit 1
 	else
 		echo "Creating the new PostgreSQL docker container."
-		docker run --name "${2}" -p 5432:5432 -e POSTGRES_PASSWORD="${3}" -d postgres:latest
+		docker run --name "${2}" -p $HOST_PORT:5432 -e POSTGRES_PASSWORD="${3}" -d postgres:$TAG
 		
 		# PostgreSQL with PostGIS
 		#docker run --name "${2}" -p 5432:5432 -e POSTGRES_PASSWORD="${2}" -d mdillon:postgis
@@ -166,11 +177,17 @@ pgScript() {
 	elif [[ ! -z "$4" ]]; then
 		local DIR=$(dirname "${3}")
 		local FILE=$(basename "${3}")
+		if [[ "$DIR" == "." ]]; then
+			DIR=$PWD
+		fi
 		echo "Running script ${3} on database ${4} in container ${2}."
 		docker run -it --link "${2}":postgres -v $DIR:/var/script -e SQL_SCRIPT="${FILE}" -e DB_NAME="${4}" --rm postgres:latest psql -h postgres -U postgres -d ${4} -f /var/script/$FILE
 	else
 		local DIR=$(dirname "${3}")
 		local FILE=$(basename "${3}")
+		if [[ "$DIR" == "." ]]; then
+			DIR=$PWD
+		fi
 		echo "You did not provide a database name."
 		if confirm "Proceed? [y/N]"; then
 			echo "Running script ${3} in container ${2}."
@@ -193,6 +210,69 @@ function pgStatus() {
 	else
 		docker ps -a | grep CREATED
 		docker ps -a | egrep 'pg|postgres|postgresql'
+	fi
+}
+
+function pgDump() {
+	local loc_command=dump
+	local loc_usage="usage: $PROGRAM ${loc_command} CONTAINER_NAME DATABASE_NAME [FILENAME]"
+
+	if [[ -z "$2" ]]; then
+		echo "You must provide a container name."
+		echo "${loc_usage}"
+		exit 1
+	elif [[ "$2" == "--help" ]]; then
+		echo "${loc_usage}"
+		exit 0
+	elif [[ -z "$3" ]]; then
+		echo "You must provide a database name"
+		echo "${loc_usage}"
+		exit 1
+	elif [[ ! -z "$4" ]]; then
+		echo "Dumping database ${3} to SQL file ${4}"
+		docker run -it --link "${2}":postgres -v $PWD:/var/script -e DB_NAME="${3}" -e FILENAME="${4}" --rm postgres:latest sh -c 'exec pg_dump -h postgres -U postgres -C "$DB_NAME" > "/var/script/$FILENAME"'
+	else
+		echo "Dumping database ${3} to SQL file dump.sql."
+		docker run -it --link "${2}":postgres -v $PWD:/var/script -e DB_NAME="${3}" --rm postgres:latest sh -c 'exec pg_dump -h postgres -U postgres -C "$DB_NAME" > "/var/script/dump.sql"'
+	fi
+}
+
+function dropPG() {
+
+	local loc_command=drop
+	local loc_usage="usage: $PROGRAM ${loc_command} CONTAINER_NAME"
+
+	if [[ -z "$2" ]]; then
+		echo "You must provide a container name."
+		echo "${loc_usage}"
+		exit 1
+	elif [[ "$2" == "--help" ]]; then
+		echo "${loc_usage}"
+		exit 0
+	else
+		if confirm "Are you sure you want to delete the ${2} container? This cannot be undone! [y/N]"; then
+			stopPG $ARGS
+			echo "Dropping container ${2}"
+			docker rm "${2}"
+		else
+			echo "Drop operation cancelled."
+		fi
+	fi
+}
+
+function pgLogs() {
+	local loc_command=logs
+	local loc_usage="usage: $PROGRAM ${loc_command} CONTAINER_NAME"
+
+	if [[ -z "$2" ]]; then
+		echo "You must provide a container name."
+		echo "${loc_usage}"
+		exit 1
+	elif [[ "$2" == "--help" ]]; then
+		echo "${loc_usage}"
+		exit 0
+	else
+		docker logs "${2}"
 	fi
 }
 
