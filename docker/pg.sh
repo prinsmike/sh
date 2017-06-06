@@ -147,7 +147,12 @@ stopPG() {
 
 attachPG() {
 	local loc_command=attach
-	local loc_usage="usage: $PROGRAM ${loc_command} CONTAINER_NAME"
+	local loc_usage="usage: $PROGRAM ${loc_command} CONTAINER_NAME [RELEASE_TAG]"
+
+	TAG=$3
+	if [[ -z "$3" ]]; then
+		TAG=latest
+	fi
 
 	if [[ -z "$2"  ]]; then
 		echo "You must provide a container name."
@@ -155,7 +160,7 @@ attachPG() {
 		exit 0
 	else
 		echo "Attaching a terminal to an existing PosgreSQL docker container."
-		docker run -it --rm --link "${2}":postgres postgres:latest sh -c 'exec psql -h postgres -U postgres'
+		docker run -it --rm --link "${2}":postgres postgres:$TAG sh -c 'exec psql -h postgres -U postgres'
 	fi
 }
 
