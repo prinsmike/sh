@@ -237,7 +237,7 @@ function mysqlStatus() {
 		exit 0
 	else
 		docker ps -a | grep CREATED
-		docker ps -a | grep mysql-
+		docker ps -a | grep mysql
 	fi
 }
 

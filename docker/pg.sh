@@ -183,6 +183,19 @@ pgScript() {
 
 }
 
+function pgStatus() {
+	local loc_command=status
+	local loc_usage="usage: $PROGRAM ${loc_command}"
+
+	if [[ "$2" == "--help" ]]; then
+		echo "${loc_usage}"
+		exit 0
+	else
+		docker ps -a | grep CREATED
+		docker ps -a | egrep 'pg|postgres|postgresql'
+	fi
+}
+
 function confirm() {
 	# Requires Bash 4.x
 	read -r -p "${1:-Are you sure? [y/N]} " response
